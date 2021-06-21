@@ -6,7 +6,6 @@ A press to print bus stop posters.
 
 ## TODO
 
-- Sheet guide
-- Real stamps with pin holes!
-- Side rails?
-- Axe end stops (to prevent the axe to move freely sideways)
+- Take into account real stamp height ! Lino will be thick !
+- Split board to be able to cut it ;)
+- 2D / Export to SVG or DXF

@@ -17,17 +17,85 @@ pin_diameter = 5;
 pin_spacing = 100;
 pin_depth = 10;
 
+bearing = true;
 
+font = "Liberation Sans";
+letter_size = 100;
+letter_height = 2;
+stamp_height = letter_size + 10;
+stamp_width = letter_size;
+stamp_thickness = 15;
 
 module pins() {
     echo(num_components=$children);
     up(pin_height/2)
-    grid2d(size=[width, length], spacing=[pin_spacing, pin_spacing])
+    grid2d(size=[width-2*pin_spacing, length-2*pin_spacing], spacing=[pin_spacing, pin_spacing])
     cyl(l=pin_height, r=pin_diameter/2);
 }
 
+module block(nw, nh) {
+    difference() {
+        cuboid([nw * pin_spacing, nh * pin_spacing, stamp_thickness], anchor=BOTTOM);
+
+        // #translate([0, 0, 0])
+        grid2d(size=[(nw - 1) * pin_spacing, (nh - 1) * pin_spacing], spacing=[pin_spacing, pin_spacing])
+        cyl(l=pin_height, r=pin_diameter/2);
+    }
+}
+
+module blocks() {
+
+    translate([1000, 0, 0])
+    block(2, 1);
+
+    translate([1000, 200, 0])
+    block(2, 2);
+
+    translate([1000, 400, 0])
+    block(3, 1);
+
+    translate([1400, 0, 0])
+    block(3, 2);
+
+    translate([1400, 400, 0])
+    block(3, 3);
+
+    translate([1900, 400, 0])
+    block(4, 3);
+
+    translate([1900, 800, 0])
+    block(4, 4);
+
+    translate([2100, 0, 0])
+    block(5, 4);
+
+    translate([1000, 1000, 0])
+    block(5, 5);
+}
+
+translate([1000, 0, 0])
+block(1, 2);
+
+translate([1000, 400, 0])
+stamp("E");
+
+translate([1150, 400, 0])
+stamp("A", 1);
+
 up(thickness-pin_depth)
 pins();
+
+module stamp(l, nh=2) {
+    union() {
+        
+        block(1, nh);
+
+        xflip()
+        color( rands(0,1,3), alpha=1 )
+        up(stamp_thickness)
+        letter(l);
+    }
+}
 
 module matrix() {
     difference() {
@@ -41,14 +109,25 @@ module matrix() {
 
 matrix();
 
+module matrix4x4() {
+    difference() {
+        matrix4x4_width = (width + 2 * margin) / 2;
+        matrix4x4_length = (length + 2 * margin) / 2;
+        translate([matrix4x4_width / 2, matrix4x4_length / 2, 0])
+        cuboid([matrix4x4_width, matrix4x4_length, thickness], anchor=BOTTOM);
+        up(thickness-1)
+        cuboid([width, length, 2], anchor=BOTTOM);
+        up(thickness-pin_depth)
+        pins();
+    }
+}
 
-font = "Liberation Sans";
+fwd(2000)
+matrix4x4();
 
-letter_size = 100;
-letter_height = 2;
-stamp_height = letter_size + 10;
-stamp_width = letter_size;
-stamp_thickness = 15;
+xflip()
+fwd(2000)
+matrix4x4();
 
 module letter(l) {
 	linear_extrude(height = letter_height) {
@@ -56,7 +135,7 @@ module letter(l) {
 	}
 }
 
-module stamp(l) {
+module stamp_bckp(l) {
     difference() {
         union() {
             cuboid([stamp_width, stamp_height, stamp_thickness], anchor=BOTTOM);
@@ -66,8 +145,8 @@ module stamp(l) {
             up(stamp_thickness)
             letter(l);
         }
-        down(pin_height/2)
-        pins();
+        // down(pin_height/2)
+        // pins();
     }
 
 }
@@ -103,19 +182,29 @@ module stamps() {
     }
 }
 
-translate([-200, -650, thickness])
-stamps();
+// translate([-200, -650, thickness])
+// stamps();
+
+bearing_outer_diameter = 72;
+bearing_inner_diameter = 35;
+bearing_thickness = 17;
 
 wheel_thickness = 20;
 wheel_diameter = 500; // inner wheel, from paper to the top
 wheel_axe_diameter = 35;
-rail_height = stamp_thickness + thickness - 5;
+wheel_inner_diameter = bearing ? bearing_outer_diameter : wheel_axe_diameter;
+wheel_skin_thickness = 3;
+
+rail_height = stamp_thickness + thickness + wheel_skin_thickness - 5;
+
 
 wheel_batten_width = 15;
 wheel_batten_height = 40;
 wheel_n_batten = 40;
 
-wheel_position_y = wheel_diameter / 2 + thickness + stamp_thickness;
+
+
+wheel_position_y = wheel_diameter / 2 + thickness + stamp_thickness + wheel_skin_thickness;
 
 module wheel_battens() {
     xrot_copies(n=wheel_n_batten, r=wheel_diameter/2)
@@ -127,14 +216,20 @@ module wheel_in() {
     difference() {
         yrot(90)
         down(wheel_thickness/2)
-        tube(h=wheel_thickness, od=wheel_diameter, id=wheel_axe_diameter);
+        tube(h=wheel_thickness, od=wheel_diameter, id=wheel_inner_diameter);
         wheel_battens();
     }
 }
 
 xcopies((width + 2 * margin + wheel_thickness)/3, 2)
-up(wheel_position_y)
-wheel_in();
+up(wheel_position_y) {
+    wheel_in();
+
+    if(bearing) {
+        color( rands(0,1,3), alpha=1 )
+        bearing();
+    }
+}
 
 
 module batten() { // chevron / liteau
@@ -151,14 +246,38 @@ module wheel_out() {
     difference() {
         yrot(90)
         down(wheel_thickness/2)
-        tube(h=wheel_thickness, od=wheel_diameter + 2 * rail_height, id=wheel_axe_diameter);
+        tube(h=wheel_thickness, od=wheel_diameter + 2 * rail_height, id=wheel_inner_diameter);
         wheel_battens();
     }
 }
 
 xcopies(width + 2 * margin + wheel_thickness, 2)
+up(wheel_position_y) {
+    wheel_out();
+
+    if(bearing) {
+        color( rands(0,1,3), alpha=1 )
+        bearing();
+    }
+
+}
+
+module bearing() {
+    yrot(90)
+    down(bearing_thickness/2)
+    tube(h=bearing_thickness, id=bearing_inner_diameter, od=bearing_outer_diameter);
+}
+
+module wheel_stop() {
+    stop_diameter = wheel_axe_diameter + 50;
+    yrot(90)
+    down(wheel_thickness/2)
+    tube(h=wheel_thickness, id=wheel_axe_diameter, od=stop_diameter);
+}
+
+xcopies(width + 2 * margin + wheel_thickness + 2 * wheel_thickness, 2)
 up(wheel_position_y)
-wheel_out();
+wheel_stop();
 
 // skin
 skin_width = width + 2 * margin;
@@ -178,3 +297,11 @@ module axe() {
 }
 
 axe();
+
+module rails() {
+    up(thickness)
+    xcopies(width + margin, 2)
+    cuboid([margin, length, stamp_thickness], anchor=BOTTOM);
+}
+
+rails();
